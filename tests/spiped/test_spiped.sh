@@ -29,7 +29,7 @@ fi
 # Check for required commands
 if ! command -v ncat >/dev/null 2>&1; then
 	echo "ncat not detected; it is part of the nmap suite"
-	echo "	(it is required for multiple sockets on the same port"
+	echo "	(it is required for multiple sockets on the same port)"
 	exit 1
 fi
 
@@ -44,7 +44,7 @@ fi
 ####################################################
 
 # set up a spiped "encryption" server
-setup_one_spiped () {
+setup_spiped_encryption_server () {
 	basename=$1
 
 	# set up valgrind command (if required)
@@ -70,7 +70,7 @@ setup_one_spiped () {
 }
 
 # set up spiped "encryption" and "decryption" servers
-setup_two_spipeds () {
+setup_spiped_encryption_decryption_servers () {
 	basename=$1
 
 	# set up valgrind commands (if required)
@@ -105,7 +105,7 @@ setup_two_spipeds () {
 
 # set up spiped "encryption" and "decryption" servers, with the "decryption"
 # server being the system
-setup_devel_system_spipeds () {
+setup_spiped_encryption_decryption_servers_system () {
 	basename=$1
 
 	# set up valgrind commands (if required)
@@ -140,10 +140,15 @@ setup_devel_system_spipeds () {
 
 
 ####################################################
-test_single () {
+test_connection_open_close_single () {
+	# Goal of this test:
+	# - establish a connection to a spiped server
+	# - open a connection, but don't say anything
+	# - close the connection
+	# - server should quit (because we gave it -1)
 	basename="01-single"
 	echo -n "Running test: $basename... "
-	setup_one_spiped $basename
+	setup_spiped_encryption_server $basename
 	echo "" | nc 127.0.0.1 $src_port
 	# wait for spiped (and valgrind) to complete
 	sleep $sleep_ncat_valgrind_stop
@@ -158,10 +163,15 @@ test_single () {
 }
 
 
-test_double () {
+test_connection_open_close_double () {
+	# Goal of this test:
+	# - establish a connection to a spiped server
+	# - open two connections, but don't say anything
+	# - close one of the connections
+	# - server should quit (because we gave it -1)
 	basename="02-double"
 	echo -n "Running test: $basename... "
-	setup_one_spiped $basename
+	setup_spiped_encryption_server $basename
 	# awkwardly force nc to keep the connection open; the simple
 	# "nc -q 2 ..." to wait 2 seconds isn't portable
 	( ( echo ""; sleep 2 ) | nc 127.0.0.1 $src_port ) &
@@ -178,10 +188,16 @@ test_double () {
 	fi
 }
 
-test_middle () {
+test_send_data () {
+	# Goal of this test:
+	# - create a pair of spiped servers (encryption, decryption)
+	# - establish a connection to the encryption spiped server
+	# - open one connection, send lorem-send.txt, close the connection
+	# - server should quit (because we gave it -1)
+	# - the received file should match lorem-send.txt
 	basename="03-middle"
 	echo -n "Running test: $basename... "
-	setup_two_spipeds $basename
+	setup_spiped_encryption_decryption_servers $basename
 	cat lorem-send.txt | nc 127.0.0.1 $src_port
 	# wait for spiped (and valgrind) to complete
 	sleep $sleep_ncat_valgrind_stop
@@ -205,14 +221,21 @@ test_middle () {
 	fi
 }
 
-test_middle_system () {
+test_send_data_system_spiped () {
+	# Goal of this test:
+	# - create a pair of spiped servers (encryption, decryption), where
+	#   the decryption server uses the system-installed spiped binary
+	# - establish a connection to the encryption spiped server
+	# - open one connection, send lorem-send.txt, close the connection
+	# - server should quit (because we gave it -1)
+	# - the received file should match lorem-send.txt
 	basename="04-middle"
 	echo -n "Running test: $basename... "
 	if [ ! -n "$system_spiped_binary" ]; then
 		echo "omit test due to system spiped not supporting -1"
 		return;
 	fi
-	setup_devel_system_spipeds $basename
+	setup_spiped_encryption_decryption_servers_system $basename
 	cat lorem-send.txt | nc 127.0.0.1 $src_port
 	# wait for spiped (and valgrind) to complete
 	sleep $sleep_ncat_valgrind_stop
@@ -243,10 +266,10 @@ rm -rf out/
 mkdir -p out/
 
 # do tests
-test_single
-test_double
-test_middle
-test_middle_system
+test_connection_open_close_single
+test_connection_open_close_double
+test_send_data
+test_send_data_system_spiped
 
 if [ -n "$use_valgrind" ]; then
 	echo
