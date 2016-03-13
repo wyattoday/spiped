@@ -146,10 +146,33 @@ test_connection_open_close_single () {
 	# - open a connection, but don't say anything
 	# - close the connection
 	# - server should quit (because we gave it -1)
-	basename="01-single"
+	basename="01-single-open-close"
 	echo -n "Running test: $basename... "
 	setup_spiped_encryption_server $basename
 	echo "" | nc 127.0.0.1 $src_port
+	# wait for spiped (and valgrind) to complete
+	sleep $sleep_ncat_valgrind_stop
+	kill $nc_pid
+	wait
+	# check results
+	if [ `cat $out/$basename.ret` ]; then
+		echo "passed!"
+	else
+		echo "failed!"
+	fi
+}
+
+
+test_connection_open_single () {
+	# Goal of this test:
+	# - establish a connection to a spiped server
+	# - open a connection, but don't say anything
+	# - the connection should be closed automatically
+	# - server should quit (because we gave it -1)
+	basename="02-single-open"
+	echo -n "Running test: $basename... "
+	setup_spiped_encryption_server $basename
+	nc 127.0.0.1 $src_port
 	# wait for spiped (and valgrind) to complete
 	sleep $sleep_ncat_valgrind_stop
 	kill $nc_pid
@@ -169,7 +192,7 @@ test_connection_open_close_double () {
 	# - open two connections, but don't say anything
 	# - close one of the connections
 	# - server should quit (because we gave it -1)
-	basename="02-double"
+	basename="03-double-open-close"
 	echo -n "Running test: $basename... "
 	setup_spiped_encryption_server $basename
 	# awkwardly force nc to keep the connection open; the simple
@@ -188,6 +211,7 @@ test_connection_open_close_double () {
 	fi
 }
 
+
 test_send_data () {
 	# Goal of this test:
 	# - create a pair of spiped servers (encryption, decryption)
@@ -195,7 +219,7 @@ test_send_data () {
 	# - open one connection, send lorem-send.txt, close the connection
 	# - server should quit (because we gave it -1)
 	# - the received file should match lorem-send.txt
-	basename="03-middle"
+	basename="04-send-data"
 	echo -n "Running test: $basename... "
 	setup_spiped_encryption_decryption_servers $basename
 	cat lorem-send.txt | nc 127.0.0.1 $src_port
@@ -221,6 +245,7 @@ test_send_data () {
 	fi
 }
 
+
 test_send_data_system_spiped () {
 	# Goal of this test:
 	# - create a pair of spiped servers (encryption, decryption), where
@@ -229,7 +254,7 @@ test_send_data_system_spiped () {
 	# - open one connection, send lorem-send.txt, close the connection
 	# - server should quit (because we gave it -1)
 	# - the received file should match lorem-send.txt
-	basename="04-middle"
+	basename="05-send-data-system"
 	echo -n "Running test: $basename... "
 	if [ ! -n "$system_spiped_binary" ]; then
 		echo "omit test due to system spiped not supporting -1"
@@ -267,6 +292,7 @@ mkdir -p out/
 
 # do tests
 test_connection_open_close_single
+test_connection_open_single
 test_connection_open_close_double
 test_send_data
 test_send_data_system_spiped
