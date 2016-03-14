@@ -41,11 +41,37 @@ else
 	use_valgrind="1"
 fi
 
+
+check_leftover_server() {
+	# Repeated testing, especially when doing ctrl-c to break out of
+	# (suspected) hanging, can leave a ncat server floating around, which
+	# is problematic for the next testing run.  Checking for this
+	# shouldn't be necessary for normal testing (as opposed to test-script
+	# development), but there's no harm in checking anyway.
+	leftover=""
+
+	# Find old ncat server
+	cmd="ncat -k -l $dst_port"
+	oldpid=`ps ax | grep "$cmd" | grep -v "grep" | cut -f2 -d " "`
+	if [ ! -z $oldpid ]; then
+		echo "Error: Left-over server from previous run: pid= $oldpid"
+		leftover="1"
+	fi
+
+	# Early exit if any previous servers found
+	if [ ! -z $leftover ]; then
+		echo "Exit from left-over servers"
+		exit 1
+	fi
+}
+
+
 ####################################################
 
 # set up a spiped "encryption" server
 setup_spiped_encryption_server () {
 	basename=$1
+	check_leftover_server
 
 	# set up valgrind command (if required)
 	if [ -n "$use_valgrind" ]; then
@@ -72,6 +98,7 @@ setup_spiped_encryption_server () {
 # set up spiped "encryption" and "decryption" servers
 setup_spiped_encryption_decryption_servers () {
 	basename=$1
+	check_leftover_server
 
 	# set up valgrind commands (if required)
 	if [ -n "$use_valgrind" ]; then
@@ -107,6 +134,7 @@ setup_spiped_encryption_decryption_servers () {
 # server being the system
 setup_spiped_encryption_decryption_servers_system () {
 	basename=$1
+	check_leftover_server
 
 	# set up valgrind commands (if required)
 	if [ -n "$use_valgrind" ]; then
