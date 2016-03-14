@@ -12,6 +12,7 @@ out="out"
 sleep_ncat_start=1
 sleep_valgrind_start=2
 sleep_ncat_valgrind_stop=1
+sleep_ncat_timeout_valgrind_stop=3
 
 # Find script directory, and then relative spiped binary path.
 scriptdir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
@@ -90,7 +91,7 @@ setup_spiped_encryption_server () {
 	( $valgrind \
 		$spiped_binary -e \
 	 	-s 127.0.0.1:$src_port -t 127.0.0.1:$dst_port \
-	 	-k keys-blank.txt -F -1 \
+		-k keys-blank.txt -F -1 -o 1 \
 	; echo $? >> $out/$basename.ret ) &
 	sleep $sleep_valgrind_start
 }
@@ -120,12 +121,12 @@ setup_spiped_encryption_decryption_servers () {
 	( $valgrind_e \
 		$spiped_binary -e \
 		-s 127.0.0.1:$src_port -t 127.0.0.1:$mid_port \
-		-k keys-blank.txt -F -1 \
+		-k keys-blank.txt -F -1 -o 1 \
 	; echo $? >> $out/$basename-e.ret ) &
 	( $valgrind_d \
 		$spiped_binary -d \
 		-s 127.0.0.1:$mid_port -t 127.0.0.1:$dst_port \
-		-k keys-blank.txt -F -1 \
+		-k keys-blank.txt -F -1 -o 1 \
 	; echo $? >> $out/$basename-d.ret ) &
 	sleep $sleep_valgrind_start
 }
@@ -156,12 +157,12 @@ setup_spiped_encryption_decryption_servers_system () {
 	( $valgrind_e \
 		$spiped_binary -e \
 		-s 127.0.0.1:$src_port -t 127.0.0.1:$mid_port \
-		-k keys-blank.txt -F -1 \
+		-k keys-blank.txt -F -1 -o 1 \
 	; echo $? >> $out/$basename-e.ret ) &
 	( $valgrind_d \
 		$system_spiped_binary -d \
 		-s 127.0.0.1:$mid_port -t 127.0.0.1:$dst_port \
-		-k keys-blank.txt -F -1 \
+		-k keys-blank.txt -F -1 -o 1 \
 	; echo $? >> $out/$basename-d.ret ) &
 	sleep $sleep_valgrind_start
 }
@@ -191,7 +192,7 @@ test_connection_open_close_single () {
 }
 
 
-test_connection_open_single () {
+test_connection_open_timeout_single () {
 	# Goal of this test:
 	# - establish a connection to a spiped server
 	# - open a connection, but don't say anything
@@ -200,9 +201,9 @@ test_connection_open_single () {
 	basename="02-single-open"
 	echo -n "Running test: $basename... "
 	setup_spiped_encryption_server $basename
-	nc 127.0.0.1 $src_port
+	nc 127.0.0.1 $src_port &
 	# wait for spiped (and valgrind) to complete
-	sleep $sleep_ncat_valgrind_stop
+	sleep $sleep_ncat_timeout_valgrind_stop
 	kill $nc_pid
 	wait
 	# check results
@@ -320,7 +321,7 @@ mkdir -p out/
 
 # do tests
 test_connection_open_close_single
-test_connection_open_single
+test_connection_open_timeout_single
 test_connection_open_close_double
 test_send_data
 test_send_data_system_spiped
